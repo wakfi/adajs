@@ -1,0 +1,8 @@
+{
+  "name": "adajs",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "author": "Walker Gray <walkergraydev@outlook.com>",
+  "license": "MIT",
+  "private": true
+}
