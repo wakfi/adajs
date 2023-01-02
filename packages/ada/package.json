@@ -1,0 +1,12 @@
+{
+  "name": "ada",
+  "packageManager": "yarn@3.3.0",
+  "scripts": {
+    "build": "tsc",
+    "start": "node -r tsconfig-paths/register ../../dist/packages/ada/index.js"
+  },
+  "devDependencies": {
+    "tsconfig-paths": "4.1.1",
+    "typescript": "4.9.4"
+  }
+}
