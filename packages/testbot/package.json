@@ -1,9 +1,9 @@
 {
-  "name": "config",
+  "name": "testbot",
   "packageManager": "yarn@3.3.0",
   "scripts": {
     "build": "tsc",
-    "start": "ADA_ENV=test TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/config/index.js",
+    "start": "TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
     "lint": "eslint"
   },
   "devDependencies": {
@@ -11,5 +11,8 @@
     "ts-node": "10.9.1",
     "tsconfig-paths": "4.1.1",
     "typescript": "4.9.4"
+  },
+  "dependencies": {
+    "discord.js": "^14.7.1"
   }
 }

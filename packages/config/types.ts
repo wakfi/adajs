@@ -1,3 +1,5 @@
+import type { ClientOptions } from 'discord.js';
+
 export interface AdaConfig {
   /**
    * Root directory of bot
@@ -7,6 +9,8 @@ export interface AdaConfig {
 
   /**
    * Commands directory
+   *
+   * Note: If this path is relative, it is _always_ relative to `rootDir`
    * @default `${rootDir}/commands`
    */
   commandsDir?: string;
@@ -16,4 +20,9 @@ export interface AdaConfig {
    * @default false
    */
   autoRegisterCommands?: boolean;
+
+  /**
+   * Discord bot constructor options
+   */
+  bot?: ClientOptions;
 }

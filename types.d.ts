@@ -42,7 +42,13 @@ type Maybe<T> = T | null | undefined;
  */
 type Empty<T extends object> = { [K in keyof T as K]?: undefined };
 
-type BasicFunction = (...args: any) => any;
+type BasicCallable = (...args: any) => any;
+
+type Mutable<T> = T extends any[]
+  ? T[number][]
+  : T extends object
+  ? { -readonly [P in keyof T]: Mutable<T[P]> }
+  : T;
 
 type AnyConstructor<C = any> =
   | (new (...args: any[]) => C)

@@ -2,7 +2,7 @@ import { AdaConfig } from '../types';
 import { importJson, mainFilepath } from './helpers';
 import { createContext, runInContext } from 'vm';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { tryIgnore } from 'shared/utils/helpers';
 
 const configFiles = [
@@ -16,6 +16,8 @@ const vmContext = createContext(globalThis, {
   name: 'AdaConfig Loader',
   microtaskMode: 'afterEvaluate',
 });
+
+const rootDir = resolve(mainFilepath(), '..');
 
 const tryJs = (filename: string): Optional<AdaConfig> => {
   const body = tryIgnore(readFileSync, filename, { encoding: 'utf8' }) as string;
@@ -33,7 +35,6 @@ const tryFilename = (filename: string): Optional<AdaConfig> => {
 };
 
 const findConfig = (filenames: string[]) => {
-  const rootDir = join(mainFilepath(), '..');
   for (const filename of filenames) {
     const filepath = join(rootDir, filename);
     const maybeConfig = tryFilename(filepath);
@@ -46,14 +47,22 @@ const findConfig = (filenames: string[]) => {
   return DEFAULT_CONFIG;
 };
 
-export const getConfig = (): Required<AdaConfig> => {
-  const config = findConfig(configFiles);
-  if (config === DEFAULT_CONFIG) {
-    return config as typeof DEFAULT_CONFIG;
-  }
+const resolveFullConfig = (config: AdaConfig): Required<AdaConfig> => {
+  // TODO: Handle default better
   // Merge config against DEFAULT_CONFIG for exhaustiveness
   // and to perform default property assignments
-  const fullConfig = Object.assign({}, DEFAULT_CONFIG, config);
+  const mergedConfig = Object.assign({}, DEFAULT_CONFIG, config);
+  // Ensure absolute rootDir path
+  mergedConfig.rootDir = resolve(rootDir, mergedConfig.rootDir);
+  // Ensure absolute commandsDir path
+  mergedConfig.commandsDir = resolve(mergedConfig.rootDir, mergedConfig.commandsDir);
+  // TODO: Maybe better `AdaConfig.bot` defaults
+  return mergedConfig;
+};
+
+export const getConfig = (configArg: Optional<AdaConfig>): Required<AdaConfig> => {
+  const config = configArg || findConfig(configFiles);
+  const fullConfig = resolveFullConfig(config);
   return fullConfig;
 };
 
@@ -61,4 +70,11 @@ const DEFAULT_CONFIG: Required<AdaConfig> = {
   rootDir: '.',
   commandsDir: './commands',
   autoRegisterCommands: false,
+  bot: {
+    allowedMentions: {
+      parse: [],
+      repliedUser: true,
+    },
+    intents: [],
+  },
 };
