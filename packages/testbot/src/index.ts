@@ -6,8 +6,9 @@ const env = importJson('.env');
 Object.entries(env).map(([k, v]) => {
   globalThis[k] = v;
 });
-
 function auditCommands(client: AdaClient) {
+  console.log('auditCommands');
+  console.log('guild', client.guildCommands.size, 'global', client.globalCommands.size);
   client.guildCommands.map((_, key) => {
     console.log(`[GUILD COMMAND] ${key}`);
   });
@@ -26,7 +27,9 @@ function auditCommands(client: AdaClient) {
 
 async function main() {
   const client = await makeClient();
-  client.login(TOKEN);
+  console.log('calling login', client.login);
+  await client.login(TOKEN);
+  console.log('finished login');
   auditCommands(client);
 }
 main();

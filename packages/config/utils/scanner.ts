@@ -48,6 +48,7 @@ const findConfig = (filenames: string[]) => {
 };
 
 const resolveFullConfig = (config: AdaConfig): Required<AdaConfig> => {
+  console.log('resolveFullConfig');
   // TODO: Handle default better
   // Merge config against DEFAULT_CONFIG for exhaustiveness
   // and to perform default property assignments
@@ -61,6 +62,7 @@ const resolveFullConfig = (config: AdaConfig): Required<AdaConfig> => {
 };
 
 export const getConfig = (configArg: Optional<AdaConfig>): Required<AdaConfig> => {
+  console.log('getConfig');
   const config = configArg || findConfig(configFiles);
   const fullConfig = resolveFullConfig(config);
   return fullConfig;

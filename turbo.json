@@ -2,7 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "pipeline": {
     "build": {
-      "inputs": [],
+      "inputs": ["**/*.ts", "**/tsconfig.json", "**/package*.json", "packages/**/*.ts"],
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
@@ -19,8 +19,15 @@
       "outputs": []
     },
     "start": {
-      "dependsOn": ["build"]
+      "inputs": ["dist/**"],
+      "dependsOn": ["^build", "build"]
     }
   },
-  "globalDependencies": ["shared/**/*.ts", "./tsconfig.json", ".eslint.js", ".prettierrc"]
+  "globalDependencies": [
+    "shared/**/*.ts",
+    "./tsconfig.base.json",
+    ".eslint.js",
+    ".prettierrc",
+    "./package.json"
+  ]
 }

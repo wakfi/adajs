@@ -7,12 +7,15 @@ import { runInContext, createContext } from 'vm';
 import { basename, extname, dirname } from 'path';
 
 const commandHandlersContext = createContext(
-  {},
+  { module: { exports: {} }, exports: {} },
   {
     name: 'Command Handlers',
     microtaskMode: 'afterEvaluate',
   }
 );
+
+const resetContext = () =>
+  runInContext('module={exports:{}};exports={};', commandHandlersContext);
 
 // todo: extract to constants
 const UNHANDLED_COMMAND =
@@ -20,12 +23,19 @@ const UNHANDLED_COMMAND =
 const UNKNOWN_ERROR = UNHANDLED_COMMAND;
 
 async function readCommands(config: ResolvedAdaConfig): Promise<DiscoveredCommand[]> {
+  console.log('readCommands');
   const { commandsDir } = config;
   const discoveredCommands = await walkDirectory(
     (body, filepath) => {
-      const exports = runInContext(`${body};\nmodule.exports;`, commandHandlersContext, {
-        filename: filepath,
-      });
+      console.log('Walking, at file', filepath);
+      resetContext();
+      const exports = runInContext(
+        `${body};\nObject.keys(module.exports).length?module.exports:exports;`,
+        commandHandlersContext,
+        {
+          filename: filepath,
+        }
+      );
       if (!exports) {
         console.error('no exports', { exports, filepath, body });
         return;
@@ -67,6 +77,8 @@ export type InteractionOfCommand = Interaction & {
 };
 
 function patchClient(client: AdaClient, commands: DiscoveredCommand[]) {
+  console.log('patchClient');
+  const a = console.log({ commands });
   for (const command of commands) {
     const [handler, metadata] = command;
     const isGlobal = metadata.global === true;
@@ -74,7 +86,12 @@ function patchClient(client: AdaClient, commands: DiscoveredCommand[]) {
     commands.set(metadata.name, handler);
   }
   if (process.env.ADA_ENV === 'test') {
-    client.login = async (token) => '';
+    Object.defineProperty(client, 'login', {
+      value: async (token: string) => '',
+      enumerable: true,
+      configurable: true,
+      writable: false,
+    });
   }
 }
 
@@ -83,6 +100,7 @@ function maybeRegisterCommands(
   commands: DiscoveredCommand[],
   config: AdaConfig
 ) {
+  console.log('maybeRegisterCommands');
   if (config.autoRegisterCommands !== true) {
     return;
   }
@@ -97,6 +115,7 @@ function maybeErrorReply(
   },
   replyMessage = UNKNOWN_ERROR
 ) {
+  console.log('maybeErrorReply');
   if (interaction.isRepliable() && !interaction.replied) {
     // TODO: Allow custom error message
     // TODO: Allow bubbling of error
@@ -111,6 +130,7 @@ function maybeErrorReply(
 }
 
 function addClientListeners(client: AdaClient): void {
+  console.log('addClientListeners');
   client.on('interactionCreate', async (interaction) => {
     switch (interaction.type) {
       case InteractionType.ApplicationCommand:
@@ -148,14 +168,18 @@ function addClientListeners(client: AdaClient): void {
 }
 
 function setupClient(client: AdaClient, commands: DiscoveredCommand[]) {
+  console.log('setupClient');
   patchClient(client, commands);
   addClientListeners(client);
 }
 
 export const createClient = async (config: ResolvedAdaConfig): Promise<AdaClient> => {
+  console.log('createClient');
   const commands = await readCommands(config);
+  console.log('constructClient');
   const client = constructClient(config.bot);
   setupClient(client, commands);
   maybeRegisterCommands(client, commands, config);
+  console.log('finished createClient');
   return client;
 };
