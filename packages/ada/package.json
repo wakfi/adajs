@@ -3,7 +3,8 @@
   "packageManager": "yarn@3.3.0",
   "scripts": {
     "build": "tsc",
-    "start": "node -r tsconfig-paths/register ../../dist/packages/ada/index.js"
+    "start": "node -r tsconfig-paths/register ../../dist/packages/ada/index.js",
+    "lint": "eslint"
   },
   "devDependencies": {
     "tsconfig-paths": "4.1.1",

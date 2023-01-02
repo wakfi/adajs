@@ -11,6 +11,7 @@
   "scripts": {
     "configure": "husky install",
     "build": "turbo build",
+    "lint": "turbo lint",
     "start:ada": "turbo run start --filter ada",
     "start:config": "turbo run start --filter config"
   },
