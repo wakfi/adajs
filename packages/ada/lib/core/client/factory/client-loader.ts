@@ -1,13 +1,19 @@
 import { walkDirectory } from '@ada/lib/utils/helpers';
-import { ResolvedAdaConfig, DiscoveredCommand } from '@ada/types';
+import {
+  ResolvedAdaConfig,
+  DiscoveredCommand,
+  CommandConfig,
+  ResolvedCommandConfig,
+} from '@ada/types';
 import { AdaConfig } from '@config/types';
 import { ClientOptions, Interaction, InteractionType } from 'discord.js';
 import { AdaClient } from './AdaClient';
 import { runInContext, createContext } from 'vm';
-import { basename, extname, dirname } from 'path';
+import { basename, extname, dirname, relative, sep } from 'path';
+import { inferredNameSym, namePathSym } from '@ada/lib/utils/private-symbols';
 
 const commandHandlersContext = createContext(
-  { module: { exports: {} }, exports: {} },
+  { module: { exports: {} }, exports: {}, console },
   {
     name: 'Command Handlers',
     microtaskMode: 'afterEvaluate',
@@ -27,7 +33,13 @@ async function readCommands(config: ResolvedAdaConfig): Promise<DiscoveredComman
   const { commandsDir } = config;
   const discoveredCommands = await walkDirectory(
     (body, filepath) => {
-      console.log('Walking, at file', filepath);
+      console.log(
+        'Walking, at file',
+        filepath,
+        relative(commandsDir, filepath).split(sep)
+      );
+
+      // Init
       resetContext();
       const exports = runInContext(
         `${body};\nObject.keys(module.exports).length?module.exports:exports;`,
@@ -40,7 +52,15 @@ async function readCommands(config: ResolvedAdaConfig): Promise<DiscoveredComman
         console.error('no exports', { exports, filepath, body });
         return;
       }
-      const { config = {}, default: defaultExport, handler: handlerExport } = exports;
+      const {
+        config = {} as ResolvedCommandConfig,
+        default: defaultExport,
+        handler: handlerExport,
+      }: {
+        config?: ResolvedCommandConfig;
+        default?: BasicCallable;
+        handler?: BasicCallable;
+      } = exports;
       const handler = handlerExport || defaultExport;
       if (!handler) {
         console.error('Default export missing', filepath);
@@ -50,14 +70,41 @@ async function readCommands(config: ResolvedAdaConfig): Promise<DiscoveredComman
         console.error('Default export is not a function', filepath);
         return;
       }
+
+      const relativeFilepath = relative(commandsDir, filepath);
+      // config.name
       if (!config.name) {
         // Fallback to the name of the command file
-        config.name = basename(filepath, extname(filepath));
+        config[inferredNameSym] = config.name = basename(
+          relativeFilepath,
+          extname(relativeFilepath)
+        );
         if (config.name === 'index') {
           // If the filename is index, fallback to the name of the directory instead
-          config.name = basename(dirname(filepath));
+          config.name = basename(dirname(relativeFilepath));
+          if (!config.name) {
+            console.error(
+              `index at the root of the commands directory has no meaning: "${relativeFilepath}"`
+            );
+            return;
+          }
         }
       }
+      const namesPath = relativeFilepath.split(sep);
+      if (!config[inferredNameSym]?.endsWith('index')) {
+        namesPath[namesPath.length - 1] = config.name;
+      } else {
+        // If we use name inference and the filename was index, we use the directory name
+        // so we need to pop the filename (index) out of the command names path
+        namesPath.pop();
+      }
+      config[namePathSym] = namesPath;
+
+      // config.global
+      if (config.global === undefined) {
+        config.global = false;
+      }
+
       return [handler, config] as DiscoveredCommand;
     },
     {
@@ -80,10 +127,8 @@ function patchClient(client: AdaClient, commands: DiscoveredCommand[]) {
   console.log('patchClient');
   const a = console.log({ commands });
   for (const command of commands) {
-    const [handler, metadata] = command;
-    const isGlobal = metadata.global === true;
-    const commands = isGlobal ? client.globalCommands : client.guildCommands;
-    commands.set(metadata.name, handler);
+    console.log('for command', command);
+    client.addCommand(command, (command[1] as any)[namePathSym]);
   }
   if (process.env.ADA_ENV === 'test') {
     Object.defineProperty(client, 'login', {

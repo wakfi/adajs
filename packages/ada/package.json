@@ -1,6 +1,7 @@
 {
   "name": "ada",
   "packageManager": "yarn@3.3.0",
+  "main": "index.ts",
   "scripts": {
     "build": "tsc",
     "start": "TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/ada/index.js",

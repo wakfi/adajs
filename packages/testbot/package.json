@@ -2,7 +2,7 @@
   "name": "testbot",
   "packageManager": "yarn@3.3.0",
   "scripts": {
-    "build": "tsc",
+    "build": "yarn workspace ada build && tsc",
     "start": "ADA_ENV=test TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
     "lint": "eslint",
     "a": "",
@@ -15,7 +15,6 @@
     "typescript": "4.9.4"
   },
   "dependencies": {
-    "ada@workspace": "*",
     "discord.js": "^14.7.1"
   }
 }
