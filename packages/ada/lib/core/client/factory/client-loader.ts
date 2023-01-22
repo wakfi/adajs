@@ -171,8 +171,11 @@ async function readCommands(config: ResolvedAdaConfig): Promise<CommandEntry[]> 
       }
       config[namePathSym] = namesPath;
 
+      // Unimplemented. Need to figure out how to deal with non-globals in a way that
+      // is intuitive/sensible/reasonable/easy to work with
       // config.global
-      config.global = !!config.global;
+      // config.global = !!config.global;
+      config.global = true;
 
       // config.localizations
       config.localizations = {
@@ -311,7 +314,6 @@ async function maybeRegisterCommands(
   config: AdaConfig
 ) {
   console.log('maybeRegisterCommands');
-  console.log(config);
   if (config.autoRegisterCommands !== true) {
     return;
   }
@@ -371,7 +373,7 @@ function addClientListeners(client: AdaClient): void {
         // TODO: Setup hooks
         try {
           // TODO: Will we use the return value?
-          handler();
+          handler(interaction);
         } catch (e) {
           console.error(e);
           maybeErrorReply(interaction, UNKNOWN_ERROR);

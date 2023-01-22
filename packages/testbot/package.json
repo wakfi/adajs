@@ -3,7 +3,8 @@
   "packageManager": "yarn@3.3.0",
   "scripts": {
     "build": "yarn workspace ada build && tsc",
-    "start": "ADA_ENV=trial TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
+    "start": "TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
+    "test": "ADA_ENV=test TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
     "lint": "eslint",
     "a": "",
     "c": ""

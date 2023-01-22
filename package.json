@@ -14,7 +14,8 @@
     "lint": "turbo lint",
     "start:ada": "turbo run start --filter ada",
     "start:config": "turbo run start --filter config",
-    "start:testbot": "yarn workspace testbot build && yarn workspace testbot start"
+    "start:testbot": "yarn workspace testbot build && yarn workspace testbot start",
+    "test:testbot": "yarn workspace testbot build && yarn workspace testbot test"
   },
   "devDependencies": {
     "@types/node": "18.11.18",

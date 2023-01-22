@@ -22,7 +22,7 @@ function auditCommands(commands: CommandsCollection, collectionName: string = ''
       console.warn('(is collection)');
       auditCommands(entry, `${collectionName.toUpperCase()} ${key}`.trim());
     } else {
-      await entry.handler();
+      await entry.handler({ reply: () => {} });
     }
   });
 }
@@ -39,6 +39,8 @@ async function main() {
   console.log('calling login', client.login);
   await client.login(TOKEN);
   console.log('finished login');
-  auditAllCommands(client);
+  if (process.env.ADA_ENV === 'test') {
+    auditAllCommands(client);
+  }
 }
 main();

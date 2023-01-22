@@ -1,8 +1,11 @@
+import { CommandInteraction } from 'discord.js';
+
 let a = 5;
-export const handler = () => {
+export const handler = (interaction: CommandInteraction) => {
   console.log('HANDLER', a, q, myObj.val);
   myObj.val = 20;
   console.log('HANDLER', a, q, myObj.val);
+  interaction.reply('test');
 };
 
 var q = 'haha';

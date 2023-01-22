@@ -123,6 +123,7 @@ export class AdaClient extends Client {
     const isGlobal = interaction.commandGuildId === null;
     // TODO: Traverse options as needed
     const namePath: string = interaction.commandName;
+    // console.log(interaction, interaction.commandName);
     const [command] = this.findCommandReference(namePath, isGlobal);
     return command?.handler;
   }
