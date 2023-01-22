@@ -308,6 +308,8 @@ const entryToApiCommand = (command: CommandEntry): Optional<APICommand> => {
   return apiCommand;
 };
 
+// The code in this function is heavily based on the logic used in Bulbbot for this purpose
+// https://github.com/TeamBulbbot/bulbbot/blob/3729f970dfbe271995b07887bb09b77c38adc245/src/utils/InteractionCommands.ts
 async function maybeRegisterCommands(
   client: AdaClient,
   commands: CommandEntry[],
