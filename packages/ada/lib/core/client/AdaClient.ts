@@ -1,7 +1,7 @@
 import { collectionPathSym, namePathSym } from '@ada/lib/utils/private-symbols';
-import { CommandEntry, CommandsCollection, DiscoveredCommand } from '@ada/types';
 import { Client, Collection } from 'discord.js';
-import { InteractionOfCommand } from './client-loader';
+import type { CommandEntry, CommandsCollection } from '@ada/types';
+import type { InteractionOfCommand } from './factory/client-loader';
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -16,27 +16,13 @@ export class AdaClient extends Client {
   public guildCommands = commandCollection();
   public globalCommands = commandCollection();
 
-  private wrapDiscoveredCommandIntoCommandEntry([
-    handler,
-    config,
-  ]: DiscoveredCommand): CommandEntry {
-    return {
-      ...config,
-      handler,
-    };
-  }
-
-  public addCommand(command: DiscoveredCommand, namePath: string | string[]) {
-    const [, config] = command;
-    const entry = this.wrapDiscoveredCommandIntoCommandEntry(command);
-    const [currentEntry, key, collection] = this.findCommandReference(
-      namePath,
-      config.global
-    );
+  public addCommand(command: CommandEntry, namePath: string | string[]) {
+    const { global: isGlobal } = command;
+    const [currentEntry, key, collection] = this.findCommandReference(namePath, isGlobal);
     if (currentEntry) {
       const collectionPath = collection.get(collectionPathSym);
       const currentEntryNamepath = currentEntry[namePathSym];
-      const newEntryNamepath = entry[namePathSym];
+      const newEntryNamepath = command[namePathSym];
       if (!collectionPath) {
         // This length comparison indicates that the |currentEntry| is at the end of its path,
         // and cannot be replaced by a further chain of collections
@@ -85,14 +71,14 @@ export class AdaClient extends Client {
         // `.`, you deserve the collision. Use a real name
         if (currentEntryNamepath.length === len) {
           currentCollection.set('.', currentEntry);
-          currentCollection.set(newEntryNamepath[i], entry);
+          currentCollection.set(newEntryNamepath[i], command);
         } else {
-          currentCollection.set('.', entry);
+          currentCollection.set('.', command);
           currentCollection.set(currentEntryNamepath[i], currentEntry);
         }
       }
     } else {
-      collection.set(key, entry);
+      collection.set(key, command);
     }
   }
 

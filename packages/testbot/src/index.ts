@@ -1,5 +1,5 @@
-import { makeClient } from '@ada/index';
-import { AdaClient } from '@ada/lib/core/client/factory/AdaClient';
+import { createClient } from '@ada/index';
+import { AdaClient } from '@ada/lib/core/client/AdaClient';
 import { CommandsCollection } from '@ada/types';
 import { importJson } from '@config/utils/helpers';
 import { Collection } from 'discord.js';
@@ -35,7 +35,7 @@ function auditAllCommands(client: AdaClient) {
 }
 
 async function main() {
-  const client = await makeClient();
+  const client = await createClient();
   console.log('calling login', client.login);
   await client.login(TOKEN);
   console.log('finished login');

@@ -1,6 +1,6 @@
-import type { ClientOptions } from 'discord.js';
+import type { ClientOptions, Snowflake } from 'discord.js';
 
-export interface AdaConfig {
+type BaseAdaConfig = {
   /**
    * Root directory of bot
    * @default '.'
@@ -25,4 +25,34 @@ export interface AdaConfig {
    * Discord bot constructor options
    */
   bot?: ClientOptions;
-}
+};
+
+export type AdaConfig = BaseAdaConfig &
+  (
+    | {
+        autoRegisterCommands?: false;
+
+        /**
+         * If using command auto-registration the bot user ID is needed in order generate the API endpoint URL
+         */
+        clientId?: undefined;
+
+        /**
+         * If using command auto-registration the bot token is needed in order to send the API request, for authentication
+         */
+        token?: undefined;
+      }
+    | {
+        autoRegisterCommands: true;
+
+        /**
+         * If using command auto-registration the bot user ID is needed in order generate the API endpoint URL
+         */
+        clientId: Snowflake;
+
+        /**
+         * If using command auto-registration the bot token is needed in order to send the API request, for authentication
+         */
+        token: string;
+      }
+  );

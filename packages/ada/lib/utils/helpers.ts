@@ -2,7 +2,7 @@ import fg from 'fast-glob';
 import { readFile } from 'fs/promises';
 
 export async function walkDirectory<
-  T extends (body: string, filepath: string) => Awaitable<any>
+  T extends ({ body, filepath }: { body: string; filepath: string }) => Awaitable<any>
 >(
   callback: T,
   {
@@ -47,7 +47,7 @@ export async function walkDirectory<
     if (controller.signal.aborted) {
       return;
     }
-    return await callback(body, filepath);
+    return await callback({ body, filepath });
   });
   try {
     console.log('awaiting callbacks');

@@ -34,3 +34,7 @@ export const tryParse = <T = any>(s: string): T | undefined => {
 export function sleep(milliseconds: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
+
+// @ts-expect-error String comparison + boolean-integer coercion to produce -1, 0, or 1
+// for an ascending lexical sort by property key
+export const strcmp = (a: string = '', b: string = ''): number => (a > b) - (a < b);

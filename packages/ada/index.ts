@@ -1,13 +1,12 @@
 import { getConfig } from '@config/utils/scanner';
-import { createClient } from '@ada/lib/core/client/factory/client-loader';
+import { makeClient } from '@ada/lib/core/client/factory/client-loader';
 import { AdaConfig } from '@config/types';
 
-export const makeClient = async (configArg?: AdaConfig) => {
-  console.log('makeClient');
+export const createClient = async (configArg?: AdaConfig) => {
+  console.log('createClient');
   const config = getConfig(configArg);
   console.log('finished getConfig');
-  const client = await createClient(config);
-  console.log('finished makeClient');
+  const client = await makeClient(config);
+  console.log('finished createClient');
   return client;
 };
-//

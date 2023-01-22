@@ -93,4 +93,10 @@ type WithOptionalProps<T, K extends keyof T = keyof T> = Omit<T, K> & OptionalPr
 type WithPartialMaybeProps<T, K extends keyof T = keyof T> = Omit<T, K> &
   Partial<NullableProps<T, K>>;
 
+type TypeProps<T, U, K extends keyof T = keyof T> = { [P in K]: U };
+type WithTypeProps<T, U, K extends keyof any = keyof T> = Omit<T, Extract<keyof T, K>> &
+  TypeProps<T, U, Extract<keyof T, K>>;
+
 type ArrayOfNonNull<T extends Array<any>> = NonNullable<T[number]>[];
+
+type Entries<T, K extends keyof T> = { [P in K]: [P, T[P]] }[K][];
