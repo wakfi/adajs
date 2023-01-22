@@ -3,6 +3,7 @@ import { AdaClient } from '@ada/lib/core/client/AdaClient';
 import { CommandsCollection } from '@ada/types';
 import { importJson } from '@config/utils/helpers';
 import { Collection } from 'discord.js';
+import { tryIgnore } from 'shared/utils/helpers';
 
 const env = importJson('.env');
 Object.entries(env).map(([k, v]) => {
@@ -22,14 +23,19 @@ function auditCommands(commands: CommandsCollection, collectionName: string = ''
       console.warn('(is collection)');
       auditCommands(entry, `${collectionName.toUpperCase()} ${key}`.trim());
     } else {
-      await entry.handler({ reply: () => {} });
+      await tryIgnore(entry.handler, { reply: () => {} });
     }
   });
 }
 
 function auditAllCommands(client: AdaClient) {
   console.log('auditCommands');
-  console.log('guild', client.guildCommands.size, 'global', client.globalCommands.size);
+  console.log(
+    'guild',
+    client.guildCommands.size - 1,
+    'global',
+    client.globalCommands.size - 1
+  );
   auditCommands(client.globalCommands, 'GLOBAL');
   auditCommands(client.guildCommands, 'GUILD');
 }

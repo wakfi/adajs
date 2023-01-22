@@ -17,7 +17,7 @@ import { basename, extname, dirname, relative, sep } from 'path';
 import { inferredNameSym, namePathSym } from '@ada/lib/utils/private-symbols';
 import { setInternalClient } from '@ada/lib/utils/state';
 import { executeFile, HandlerFileExports } from '@ada/lib/utils/vm';
-import { strcmp } from 'shared/utils/helpers';
+import { strcmp, tryIgnore } from 'shared/utils/helpers';
 
 // TODO Move to a constants file
 export const discordApi = 'https://discord.com/api/v10';
@@ -337,7 +337,7 @@ async function maybeRegisterCommands(
   });
 }
 
-function maybeErrorReply(
+async function maybeErrorReply(
   interaction: Interaction & {
     type:
       | InteractionType.ApplicationCommand
@@ -351,11 +351,8 @@ function maybeErrorReply(
     // TODO: Allow bubbling of error
     // TODO: Create a way to register callback to run whenever an error happens. Maybe alternative to bubbling
     //       Maybe a hook would make sense here? Unlikely
-    if (interaction.deferred) {
-      interaction.followUp(replyMessage);
-    } else {
-      interaction.reply(replyMessage);
-    }
+    await tryIgnore(async () => interaction.deferReply({ ephemeral: true }));
+    interaction.followUp({ content: replyMessage, ephemeral: true });
   }
 }
 
@@ -409,7 +406,8 @@ export const makeClient = async (config: ResolvedAdaConfig): Promise<AdaClient> 
   console.log('constructClient');
   const client = constructClient(config.bot);
   setupClient(client, commands);
-  await maybeRegisterCommands(client, commands, config);
+  let r = await maybeRegisterCommands(client, commands, config);
+  // r && r.text().then((t) => console.log('response text:\n\n', t, '\n'));
   console.log('finished makeClient');
   setInternalClient(client);
   return client;
