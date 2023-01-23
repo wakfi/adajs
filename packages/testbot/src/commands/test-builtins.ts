@@ -65,6 +65,7 @@ export default async () => {
   console.log(Intl);
   console.log(atob);
   console.log(btoa);
+  console.log(require);
 
   console.log();
   console.log(this);

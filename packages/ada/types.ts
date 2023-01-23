@@ -72,5 +72,6 @@ type ResolvedCommandConfig = WithTypeProps<
 
 // TODO: Maybe more specific typedef for the handler
 export type CommandEntry = { handler: BasicCallable } & ResolvedCommandConfig;
-export type CommandsCollection = Collection<string, CommandEntry | CommandsCollection> &
+export type CommandsCollection = Collection<'.', CommandEntry> &
+  Collection<string, CommandEntry | CommandsCollection> &
   Collection<typeof collectionPathSym, string[]>;

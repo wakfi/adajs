@@ -11,6 +11,9 @@ import {
   PermissionFlagsBits,
   APIApplicationCommand,
   ApplicationCommandOptionType,
+  Collection,
+  ApplicationCommandSubGroup,
+  ApplicationCommandSubCommand,
 } from 'discord.js';
 import { AdaClient } from '../AdaClient';
 import { basename, extname, dirname, relative, sep } from 'path';
@@ -88,11 +91,155 @@ switch (k) {
     // if the cases are exhaustive. If a new property gets added, the switch won't
     // be exhaustive anymore and this assignment will trigger a type error until
     // the case(s) are added to make it exhaustive again
-    const b: never = k;
+    const _b: never = k;
 }
+
+const elide = <K extends keyof any, V>(
+  obj: { [P in K]: V },
+  predicate?: (v: V) => boolean
+): Optional<{
+  [P in K]: V;
+}> => {
+  for (const key in obj) {
+    if (predicate ? predicate(obj[key]) : !obj[key]) return undefined;
+    return { [key]: obj[key] } as any;
+  }
+};
 
 const permissionStringsToBits = (perms: PermissionsString[] = []): bigint | null =>
   perms.reduce((acc, perm) => acc | PermissionFlagsBits[perm], 0n);
+
+export const ensureCommand = (
+  exports: HandlerFileExports,
+  { filepath = '', commandsDir = '' } = {}
+): Optional<CommandEntry> => {
+  const {
+    config = {} as any,
+    default: defaultExport,
+    handler: handlerExport,
+  }: HandlerFileExports = exports;
+
+  console.log('in exports found', {
+    config,
+    defaultExport,
+    handlerExport,
+  });
+
+  // config.disable
+  config.disable = !!config.disable;
+
+  let handler = config.disable ? () => {} : handlerExport || defaultExport;
+  if (!handler) {
+    console.warn(
+      'Missing handler. Commands must export a function, either named "handler" or as the default export',
+      filepath
+    );
+    handler = () => {};
+    // return;
+  }
+  if (typeof handler !== 'function') {
+    console.warn('Handler is not a function', filepath);
+    handler = () => {};
+    // return;
+  }
+
+  const relativeFilepath = relative(commandsDir, filepath);
+  // config.name
+  if (!config.name) {
+    // Fallback to the name of the command file
+    config[inferredNameSym] = config.name = basename(
+      relativeFilepath,
+      extname(relativeFilepath)
+    );
+    if (config.name === 'index') {
+      // If the filename is index, fallback to the name of the directory instead
+      config.name = basename(dirname(relativeFilepath));
+      if (!config.name) {
+        console.error(
+          `index at the root of the commands directory has no meaning: "${relativeFilepath}"`
+        );
+        return;
+      }
+    }
+  } else {
+    config.name = String(config.name);
+    config[inferredNameSym] = undefined!;
+  }
+  const namesPath = relativeFilepath.split(sep);
+  if (!config[inferredNameSym]?.endsWith('index')) {
+    namesPath[namesPath.length - 1] = config.name;
+  } else {
+    // If we use name inference and the filename was index, we use the directory name
+    // so we need to pop the filename (index) out of the command names path
+    namesPath.pop();
+  }
+  config[namePathSym] = namesPath;
+
+  // Unimplemented. Need to figure out how to deal with non-globals in a way that
+  // is intuitive/sensible/reasonable/easy to work with
+  // config.global
+  // config.global = !!config.global;
+  config.global = true;
+
+  // config.localizations
+  config.localizations = {
+    // Object-spread is null-safe. It's actually safe for all falsy values
+    ...config.localizations,
+  };
+
+  // config.description
+  if (config.description === undefined) {
+    config.description = 'Missing description';
+  }
+  config.description = String(config.description);
+
+  // config.type
+  if (config.type === undefined) {
+    // Default to slash command
+    config.type = ApplicationCommandType.ChatInput;
+  }
+
+  // config.defaultPermissions
+  // @ts-expect-error Don't worry about it
+  config.defaultPermissions = permissionStringsToBits(config.defaultPermissions);
+
+  // config.clientPermissions
+  // @ts-expect-error Don't worry about it
+  config.clientPermissions = permissionStringsToBits(config.clientPermissions);
+
+  // config.options
+  config.options = config.options || [];
+
+  // config.directMessage
+  config.directMessage = !!config.directMessage;
+
+  // config.limitAccess
+  // If the key isn't present, this causes the key to be present and explicitly undefined
+  config.limitAccess = config.limitAccess;
+
+  // config.nsfw
+  config.nsfw = !!config.nsfw;
+
+  // TODO: Optimize this array creation. Too much iteration involved
+  // We are controlling the property order like this so the CommandEntry object
+  // produced has a consistent Shape in V8's internal systems. V8 Shapes are
+  // sometimes referred to as "hidden classes", all objects have a Shape, and
+  // there are benefits to having a consistent Shape. This is something that
+  // libraries and frameworks sometimes pay attention to, but most normal
+  // application code shouldn't need to be concerned with this concept
+  const commandEntryProps = [
+    ['handler', handler],
+    ...Object.entries(config).sort(([a], [b]) => strcmp(a, b)),
+    ...Object.getOwnPropertySymbols(config)
+      .sort((a, b) => strcmp(a.description, b.description))
+      .map((s) => [s, config[s]]),
+  ];
+
+  return Object.setPrototypeOf(
+    Object.fromEntries(commandEntryProps),
+    null
+  ) as CommandEntry;
+};
 
 async function readCommands(config: ResolvedAdaConfig): Promise<CommandEntry[]> {
   console.log('readCommands');
@@ -106,135 +253,15 @@ async function readCommands(config: ResolvedAdaConfig): Promise<CommandEntry[]> 
       );
 
       // Execute file in VM sandbox
-      const exports = executeFile({ body, filepath });
-      if (!exports) {
-        console.error('no exports', { exports, filepath, body });
+      const exported = executeFile({ body, filepath });
+      if (!exported) {
+        console.error('no exports', { exports: exported, filepath, body });
         return;
       }
-      const {
-        config = {} as any,
-        default: defaultExport,
-        handler: handlerExport,
-      }: HandlerFileExports = exports;
-
-      console.log('in exports found', {
-        config,
-        defaultExport,
-        handlerExport,
+      return ensureCommand(exported, {
+        filepath,
+        commandsDir,
       });
-
-      // config.disable
-      config.disable = !!config.disable;
-
-      const handler = config.disable ? () => {} : handlerExport || defaultExport;
-      if (!handler) {
-        console.error(
-          'Missing handler. Commands must export a function, either named "handler" or as the default export',
-          filepath
-        );
-        return;
-      }
-      if (typeof handler !== 'function') {
-        console.error('Handler is not a function', filepath);
-        return;
-      }
-
-      const relativeFilepath = relative(commandsDir, filepath);
-      // config.name
-      if (!config.name) {
-        // Fallback to the name of the command file
-        config[inferredNameSym] = config.name = basename(
-          relativeFilepath,
-          extname(relativeFilepath)
-        );
-        if (config.name === 'index') {
-          // If the filename is index, fallback to the name of the directory instead
-          config.name = basename(dirname(relativeFilepath));
-          if (!config.name) {
-            console.error(
-              `index at the root of the commands directory has no meaning: "${relativeFilepath}"`
-            );
-            return;
-          }
-        }
-      } else {
-        config.name = String(config.name);
-        config[inferredNameSym] = undefined!;
-      }
-      const namesPath = relativeFilepath.split(sep);
-      if (!config[inferredNameSym]?.endsWith('index')) {
-        namesPath[namesPath.length - 1] = config.name;
-      } else {
-        // If we use name inference and the filename was index, we use the directory name
-        // so we need to pop the filename (index) out of the command names path
-        namesPath.pop();
-      }
-      config[namePathSym] = namesPath;
-
-      // Unimplemented. Need to figure out how to deal with non-globals in a way that
-      // is intuitive/sensible/reasonable/easy to work with
-      // config.global
-      // config.global = !!config.global;
-      config.global = true;
-
-      // config.localizations
-      config.localizations = {
-        // Object-spread is null-safe. It's actually safe for all falsy values
-        ...config.localizations,
-      };
-
-      // config.description
-      if (config.description === undefined) {
-        config.description = 'Missing description';
-      }
-      config.description = String(config.description);
-
-      // config.type
-      if (config.type === undefined) {
-        // Default to slash command
-        config.type = ApplicationCommandType.ChatInput;
-      }
-
-      // config.defaultPermissions
-      // @ts-expect-error Don't worry about it
-      config.defaultPermissions = permissionStringsToBits(config.defaultPermissions);
-
-      // config.clientPermissions
-      // @ts-expect-error Don't worry about it
-      config.clientPermissions = permissionStringsToBits(config.clientPermissions);
-
-      // config.options
-      config.options = config.options || [];
-
-      // config.directMessage
-      config.directMessage = !!config.directMessage;
-
-      // config.limitAccess
-      // If the key isn't present, this causes the key to be present and explicitly undefined
-      config.limitAccess = config.limitAccess;
-
-      // config.nsfw
-      config.nsfw = !!config.nsfw;
-
-      // TODO: Optimize this array creation. Too much iteration involved
-      // We are controlling the property order like this so the CommandEntry object
-      // produced has a consistent Shape in V8's internal systems. V8 Shapes are
-      // sometimes referred to as "hidden classes", all objects have a Shape, and
-      // there are benefits to having a consistent Shape. This is something that
-      // libraries and frameworks sometimes pay attention to, but most normal
-      // application code shouldn't need to be concerned with this concept
-      const commandEntryProps = [
-        ['handler', handler],
-        ...Object.entries(config).sort(([a], [b]) => strcmp(a, b)),
-        ...Object.getOwnPropertySymbols(config)
-          .sort((a, b) => strcmp(a.description, b.description))
-          .map((s) => [s, config[s]]),
-      ];
-
-      return Object.setPrototypeOf(
-        Object.fromEntries(commandEntryProps),
-        null
-      ) as CommandEntry;
     },
     {
       path: commandsDir,
@@ -270,7 +297,7 @@ function patchClient(client: AdaClient, commands: CommandEntry[]) {
 }
 
 type APICommand = Omit<APIApplicationCommand, 'id' | 'application_id' | 'version'>;
-const entryToApiCommand = (command: CommandEntry): Optional<APICommand> => {
+export const entryToApiCommand = (command: CommandEntry): Optional<APICommand> => {
   const {
     defaultPermissions,
     description,
@@ -287,23 +314,39 @@ const entryToApiCommand = (command: CommandEntry): Optional<APICommand> => {
     return;
   }
 
+  console.log('converting', command);
+
+  for (let i = 0; i < options.length; ++i) {
+    const option = options[i];
+    if (option.type > 2) {
+      break;
+    }
+    options[i] = entryToApiCommand(options[i] as any) as unknown as
+      | ApplicationCommandSubGroup
+      | ApplicationCommandSubCommand;
+    // @ts-expect-error
+    if (options[i].options?.[i]?.type === 1) {
+      options[i].type = 2;
+    }
+  }
+
   const apiCommand: APICommand = {
     default_member_permissions: defaultPermissions ? `${defaultPermissions}` : null,
     description,
     name,
     type,
-    nsfw,
-    options,
     dm_permission: directMessage,
-    ...(localizations.name ? { name_localizations: localizations.name } : {}),
-    ...(localizations.description
-      ? { description_localizations: localizations.description }
-      : {}),
+    ...elide({ options }, (o) => !o?.length),
+    ...elide({ nsfw }),
+    ...elide({ name_localizations: localizations.name }),
+    ...elide({ description_localizations: localizations.description }),
   };
 
   if (type !== ApplicationCommandType.ChatInput) {
     apiCommand.description = '';
   }
+
+  console.log('result it', apiCommand);
 
   return apiCommand;
 };
@@ -320,15 +363,31 @@ async function maybeRegisterCommands(
     return;
   }
 
+  console.log('will register', commands);
+
   // TODO: Auto register the commands
   const apiCommands = commands
-    .map((command) => entryToApiCommand(command))
+    .map(entryToApiCommand)
     .filter((x): x is NonNullable<typeof x> => !!x);
 
   const endpoint = globalRegisterEndpoint(config.clientId);
   if (!endpoint || !config.token) {
     return;
   }
+  console.log(
+    'will register',
+    JSON.stringify(
+      apiCommands,
+      (k, v) => {
+        if (typeof v === 'bigint') {
+          console.log({ [k]: v });
+          return `${v}`;
+        }
+        return v;
+      },
+      2
+    )
+  );
   // TODO: Support non-global commands
   // TODO: Support limited registration
   // TODO: Support dev-only registration when in dev environments
@@ -361,6 +420,7 @@ async function maybeErrorReply(
 function addClientListeners(client: AdaClient): void {
   console.log('addClientListeners');
   client.on('interactionCreate', async (interaction) => {
+    console.log(interaction);
     switch (interaction.type) {
       case InteractionType.ApplicationCommand:
       case InteractionType.ApplicationCommandAutocomplete: {
@@ -372,7 +432,7 @@ function addClientListeners(client: AdaClient): void {
         // TODO: Setup hooks
         try {
           // TODO: Will we use the return value?
-          handler(interaction);
+          await handler(interaction);
         } catch (e) {
           console.error(e);
           maybeErrorReply(interaction, UNKNOWN_ERROR);
@@ -380,8 +440,12 @@ function addClientListeners(client: AdaClient): void {
         break;
       }
       case InteractionType.MessageComponent:
+        console.log('got a message component');
+        console.log(interaction);
         break;
       case InteractionType.ModalSubmit:
+        console.log('got a modal submit');
+        console.log(interaction);
         break;
       default:
         // This creates a typechecker error when there's an unhandled switch case
@@ -408,8 +472,20 @@ export const makeClient = async (config: ResolvedAdaConfig): Promise<AdaClient> 
   console.log('constructClient');
   const client = constructClient(config.bot);
   setupClient(client, commands);
-  let r = await maybeRegisterCommands(client, commands, config);
-  // r && r.text().then((t) => console.log('response text:\n\n', t, '\n'));
+  const toRegister = [...client.globalCommands.entries()]
+    .filter(([k]) => typeof k !== 'symbol')
+    .map(([, v]) => (v instanceof Collection ? (v.get('.') as CommandEntry) : v));
+  let r = await maybeRegisterCommands(client, toRegister, config);
+  if (r && !r.ok) {
+    // if (r) {
+    r.json()
+      .then((t) =>
+        console.log(r!.status, 'response text:\n\n', JSON.stringify(t, null, 2), '\n')
+      )
+      .then(() => {
+        throw new Error('Registration error');
+      });
+  }
   console.log('finished makeClient');
   setInternalClient(client);
   return client;

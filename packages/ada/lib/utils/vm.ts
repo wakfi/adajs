@@ -29,6 +29,7 @@ export const executeFile = ({ body, filepath }) =>
       clearTimeout: globalThis.clearTimeout,
       structuredClone: globalThis.structuredClone,
       fetch: globalThis.fetch,
+      require,
     },
     {
       filename: filepath,

@@ -46,7 +46,15 @@ async function main() {
   await client.login(TOKEN);
   console.log('finished login');
   if (process.env.ADA_ENV === 'test') {
-    auditAllCommands(client);
+    // auditAllCommands(client);
+    // console.log(client.globalCommands);
+    for (const [key, entry] of client.globalCommands.entries()) {
+      if (entry instanceof Collection) {
+        console.log(entry.get('.'));
+      } else {
+        console.log(entry);
+      }
+    }
   }
 }
 main();

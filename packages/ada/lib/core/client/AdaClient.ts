@@ -1,9 +1,14 @@
 import { collectionPathSym, namePathSym } from '@ada/lib/utils/private-symbols';
-import { Client, Collection } from 'discord.js';
+import { ApplicationCommandOptionType, Client, Collection } from 'discord.js';
 import type { CommandEntry, CommandsCollection } from '@ada/types';
-import type { InteractionOfCommand } from './factory/client-loader';
+import {
+  ensureCommand,
+  entryToApiCommand,
+  InteractionOfCommand,
+} from './factory/client-loader';
 
 const WHITESPACE_REGEX = /\s+/;
+const subcommandRefSym = Symbol('subcommandRef');
 
 // Using `public guildCommands: CommandsCollection` instead of a type assertion yields a type error
 const commandCollection = (collectionPath: string[] = []) => {
@@ -12,15 +17,30 @@ const commandCollection = (collectionPath: string[] = []) => {
   return c;
 };
 
+const placeholderCommand = (name: string) =>
+  ensureCommand({
+    config: {
+      name,
+      type: 1,
+      // @ts-expect-error
+      [subcommandRefSym]: undefined as any,
+    },
+    handler: () => {},
+  })!;
+
 export class AdaClient extends Client {
-  public guildCommands = commandCollection();
-  public globalCommands = commandCollection();
+  public readonly guildCommands = commandCollection();
+  public readonly globalCommands = commandCollection();
 
   public addCommand(command: CommandEntry, namePath: string | string[]) {
     const { global: isGlobal } = command;
+    // if (command[namePathSym].length > 3) {
+    //   throw new Error('Discord only supports at most 2 levels of subcommand nesting');
+    // }
     const [currentEntry, key, collection] = this.findCommandReference(namePath, isGlobal);
+    const collectionPath = collection.get(collectionPathSym)!;
     if (currentEntry) {
-      const collectionPath = collection.get(collectionPathSym);
+      console.log('path 1', key);
       const currentEntryNamepath = currentEntry[namePathSym];
       const newEntryNamepath = command[namePathSym];
       if (!collectionPath) {
@@ -72,13 +92,52 @@ export class AdaClient extends Client {
         if (currentEntryNamepath.length === len) {
           currentCollection.set('.', currentEntry);
           currentCollection.set(newEntryNamepath[i], command);
+
+          currentEntry.options.unshift(
+            command as CommandEntry & {
+              type: ApplicationCommandOptionType.Subcommand;
+            }
+          );
         } else {
           currentCollection.set('.', command);
           currentCollection.set(currentEntryNamepath[i], currentEntry);
+
+          command.options.unshift(
+            currentEntry as CommandEntry & {
+              type: ApplicationCommandOptionType.Subcommand;
+            }
+          );
         }
       }
-    } else {
+    } else if (collectionPath.length === command[namePathSym].length - 1) {
+      console.log('path 2', key);
       collection.set(key, command);
+      const currentEntry = collection.get('.') as Optional<CommandEntry>;
+      if (currentEntry) {
+        currentEntry.options.unshift(
+          command as CommandEntry & {
+            type: ApplicationCommandOptionType.Subcommand;
+          }
+        );
+      }
+    } else {
+      console.log('path 3', key);
+      const intermediate = commandCollection([...collectionPath, key]);
+      const fakeParent = placeholderCommand(key);
+      const topCommand = collection.get('.');
+      if (topCommand) {
+        topCommand.options.unshift(
+          fakeParent as CommandEntry & {
+            type: ApplicationCommandOptionType.Subcommand;
+          }
+        );
+      }
+      // Technically we could use the knowledge of the limited nesting to finish
+      // the mapping right here, but doing it this way keeps it robust in case
+      // Discord ever expands that restriction any
+      intermediate.set('.', fakeParent);
+      collection.set(key, intermediate);
+      this.addCommand(command, namePath);
     }
   }
 
@@ -122,9 +181,23 @@ export class AdaClient extends Client {
   public findCommand(interaction: InteractionOfCommand): Optional<BasicCallable> {
     const isGlobal = interaction.commandGuildId === null;
     // TODO: Traverse options as needed
-    const namePath: string = interaction.commandName;
+    const namePath: string[] = [interaction.commandName];
+
+    console.log(interaction.options.data, interaction.options.resolved);
+    const [subLevelOne] = interaction.options?.data;
+
+    if (subLevelOne?.type < 3) {
+      namePath.push(subLevelOne.name);
+      if (subLevelOne.type === 2) {
+        const [subLevelTwo] = subLevelOne.options!;
+        // Opt is a group, not a subcommand, therfore groupChildOpt is a subcommand
+        namePath.push(subLevelTwo.name);
+      }
+    }
+
     // console.log(interaction, interaction.commandName);
     const [command] = this.findCommandReference(namePath, isGlobal);
+    console.log('found', command, 'for', namePath);
     return command?.handler;
   }
 }
