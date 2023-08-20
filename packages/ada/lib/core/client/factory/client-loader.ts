@@ -189,7 +189,7 @@ export const ensureCommand = (
 
   // config.description
   if (config.description === undefined) {
-    config.description = 'Missing description';
+    config.description = 'No description';
   }
   config.description = String(config.description);
 
