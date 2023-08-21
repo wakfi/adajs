@@ -23,7 +23,7 @@ import { basename, extname, dirname, relative, sep } from 'path';
 import { inferredNameSym, namePathSym } from '@ada/lib/utils/private-symbols';
 import { setInternalClient } from '@ada/lib/utils/state';
 import { executeFile, HandlerFileExports } from '@ada/lib/utils/vm';
-import { strcmp, tryIgnore } from 'shared/utils/helpers';
+import { sleep, strcmp, tryIgnore } from 'shared/utils/helpers';
 import { DISCORD_API } from '@ada/lib/utils/constants';
 import { UNKNOWN_ERROR, UNHANDLED_COMMAND } from '@ada/lib/errors/user-facing/constants';
 import { watch } from 'chokidar';
@@ -474,14 +474,23 @@ async function maybeErrorReply(
   },
   replyMessage = UNKNOWN_ERROR
 ) {
-  logger.interaction.log('maybeErrorReply');
-  if (interaction.isRepliable() && !interaction.replied) {
+  logger.messages.log('maybeErrorReply');
+  // Avoid race condition if the handler had queued a reply before throwing. This allows the promise queue to clear
+  await sleep(50);
+  if (interaction.isRepliable()) {
+    logger.messages.log('interaction is repliable');
     // TODO: Allow custom error message
     // TODO: Allow bubbling of error
     // TODO: Create a way to register callback to run whenever an error happens. Maybe alternative to bubbling
     //       Maybe a hook would make sense here? Unlikely
-    await tryIgnore(async () => interaction.deferReply({ ephemeral: true }));
-    void interaction.followUp({ content: replyMessage, ephemeral: true });
+    if (!interaction.replied) {
+      logger.messages.log('interaction has not been replied to yet');
+      await tryIgnore(() => interaction.deferReply({ ephemeral: true }));
+      await sleep(50);
+      logger.messages.log('interaction is deferred');
+    }
+    await interaction.followUp({ content: replyMessage, ephemeral: true });
+    logger.messages.log('followed up');
   }
 }
 
