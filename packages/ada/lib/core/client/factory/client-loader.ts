@@ -334,9 +334,14 @@ export type InteractionOfCommand = Interaction & {
 function patchClient(client: AdaClient, commands: CommandEntry[]) {
   logger.loader.log('patchClient');
   for (const command of commands) {
-    logger.commands.log('adding command', DEBUG_VERBOSE ? command : command[namePathSym]);
+    logger.commands.log(
+      'adding command',
+      command[namePathSym],
+      DEBUG_VERBOSE ? command : ''
+    );
     client.addCommand(command, command[namePathSym]);
   }
+  logger.loader.log('loaded all commands');
   if (process.env.ADA_ENV === 'test') {
     // Override the `login` method to be no-op in test environment
     Object.defineProperty(client, 'login', {
@@ -509,7 +514,7 @@ function addClientListeners(client: AdaClient): void {
         // TODO: Setup hooks
         try {
           // TODO: Will we use the return value?
-          await handler(interaction);
+          await handler(interaction, client);
         } catch (e) {
           console.error(e);
           void maybeErrorReply(interaction, UNKNOWN_ERROR);
@@ -562,7 +567,7 @@ function watchCommands(client: AdaClient, config: ResolvedAdaConfig) {
     callback: (command: CommandEntry) => any
   ) => {
     const body = await readFile(path, 'utf8');
-    const command = readCommand(body, path, commandsDir, true);
+    const command = tryIgnore(readCommand, body, path, commandsDir, true);
     if (!command || command.disable) {
       return;
     }

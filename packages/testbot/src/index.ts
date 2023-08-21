@@ -24,7 +24,12 @@ function auditCommands(commands: CommandsCollection, collectionName = '') {
       console.warn('(is collection)');
       auditCommands(entry, `${collectionName.toUpperCase()} ${key}`.trim());
     } else {
-      await tryIgnore(entry.handler, { reply: () => {} });
+      await tryIgnore(
+        entry.handler,
+        // @ts-expect-error
+        { reply: () => {}, followUp: () => {}, isRepliable: () => true },
+        {}
+      );
     }
   });
 }
@@ -50,7 +55,7 @@ async function main() {
   console.log('finished login');
   if (process.env.ADA_ENV === 'test') {
     // auditAllCommands(client);
-    // console.log(client.globalCommands);
+    console.log('\n\n\n\n\n');
     console.log('globalCommands:', collectionToObject(client.globalCommands));
     console.log('guildCommands:', collectionToObject(client.guildCommands));
     !client.config.debug.hotReload && (await client.destroy());

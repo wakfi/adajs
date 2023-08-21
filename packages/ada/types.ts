@@ -6,6 +6,9 @@ import {
   ApplicationCommandOption,
   Snowflake,
   ClientOptions,
+  CommandInteraction,
+  MessageContextMenuCommandInteraction,
+  UserContextMenuCommandInteraction,
 } from 'discord.js';
 import {
   collectionPathSym,
@@ -157,7 +160,29 @@ type ResolvedCommandConfig = WithTypeProps<
 >;
 
 // TODO: Maybe more specific typedef for the handler
-export type CommandEntry = { handler: BasicCallable } & ResolvedCommandConfig;
+export type CommandEntry = { handler: AnyCommandHandler } & ResolvedCommandConfig;
 export type CommandsCollection = Collection<'.', CommandEntry> &
   Collection<string, CommandEntry | CommandsCollection> &
   Collection<typeof collectionPathSym, string[]>;
+
+export type SlashCommandHandler = (interaction: CommandInteraction) => Awaitable<any>;
+export type UserContextMenuHandler = (
+  interaction: UserContextMenuCommandInteraction
+) => Awaitable<any>;
+export type MessageContextMenuHandler = (
+  interaction: MessageContextMenuCommandInteraction
+) => Awaitable<any>;
+type AnyInteraction =
+  | CommandInteraction
+  | UserContextMenuCommandInteraction
+  | MessageContextMenuCommandInteraction;
+type AnyCommandHandler =
+  | SlashCommandHandler
+  | UserContextMenuHandler
+  | MessageContextMenuHandler;
+
+export type CommandHandler<T extends CommandConfig = Record<string, never>> = T extends {
+  type: infer U;
+}
+  ? (interaction: AnyInteraction & { commandType: U }) => Awaitable<any>
+  : SlashCommandHandler;
