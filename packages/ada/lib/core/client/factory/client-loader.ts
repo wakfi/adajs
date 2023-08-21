@@ -481,7 +481,7 @@ async function maybeErrorReply(
 ) {
   logger.messages.log('maybeErrorReply');
   // Avoid race condition if the handler had queued a reply before throwing. This allows the promise queue to clear
-  await sleep(50);
+  await sleep(500);
   if (interaction.isRepliable()) {
     logger.messages.log('interaction is repliable');
     // TODO: Allow custom error message
@@ -491,7 +491,7 @@ async function maybeErrorReply(
     if (!interaction.replied) {
       logger.messages.log('interaction has not been replied to yet');
       await tryIgnore(() => interaction.deferReply({ ephemeral: true }));
-      await sleep(50);
+      await sleep(500);
       logger.messages.log('interaction is deferred');
     }
     await interaction.followUp({ content: replyMessage, ephemeral: true });
