@@ -3,17 +3,22 @@
   "packageManager": "yarn@3.3.0",
   "main": "index.ts",
   "scripts": {
-    "build": "tsc",
-    "start": "TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/ada/index.js",
+    "build": "node build.mjs",
+    "start": "node ../../dist/ada.js",
     "lint": "eslint"
   },
   "devDependencies": {
     "@types/node": "18.11.18",
     "ts-node": "10.9.1",
     "tsconfig-paths": "4.1.1",
-    "typescript": "4.9.4"
+    "typescript": "^5.1.6"
   },
   "peerDependencies": {
     "discord.js": "^14.7.1"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "cosmiconfig": "^8.2.0",
+    "cosmiconfig-typescript-loader": "^5.0.0"
   }
 }

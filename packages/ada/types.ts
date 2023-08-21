@@ -1,12 +1,11 @@
-import { AdaConfig } from '@config/types';
 import {
   ApplicationCommandType,
-  ApplicationCommandOptionType,
   Collection,
   LocalizationMap,
   PermissionsString,
   ApplicationCommandOption,
   Snowflake,
+  ClientOptions,
 } from 'discord.js';
 import {
   collectionPathSym,
@@ -14,7 +13,93 @@ import {
   namePathSym,
 } from './lib/utils/private-symbols';
 
-export type ResolvedAdaConfig = Required<AdaConfig>;
+export type DebugOptions = {
+  showConfig: boolean;
+  loader: boolean;
+  commands: boolean;
+  events: boolean;
+  autoRegister: boolean;
+  interactions: boolean;
+  messages: boolean;
+  permissions: boolean;
+  ratelimits: boolean;
+  shards: boolean;
+  hotReload: boolean;
+};
+
+type BaseAdaConfig = {
+  /**
+   * Root directory of bot
+   * @default '.'
+   */
+  rootDir?: string;
+
+  /**
+   * Commands directory
+   *
+   * Note: If this path is relative, it is _always_ relative to `rootDir`
+   * @default `${rootDir}/commands`
+   */
+  commandsDir?: string;
+
+  /**
+   * Whether to watch the commands directory for changes and hot-reload them
+   * @default false
+   */
+  watch?: boolean;
+
+  /**
+   * Whether command registration should be automatically performed using provided command information
+   * @default false
+   */
+  autoRegisterCommands?: boolean;
+
+  /**
+   * Discord bot constructor options
+   */
+  bot?: ClientOptions;
+
+  /**
+   * Settings for debug logging. True enables all debug logging, false disables all debug logging
+   * @default false
+   */
+  debug?: boolean | Partial<DebugOptions>;
+};
+
+export type AdaConfig = BaseAdaConfig &
+  (
+    | {
+        autoRegisterCommands?: false;
+
+        /**
+         * If using command auto-registration the bot user ID is needed in order generate the API endpoint URL
+         */
+        clientId?: undefined;
+
+        /**
+         * If using command auto-registration the bot token is needed in order to send the API request, for authentication
+         */
+        token?: undefined;
+      }
+    | {
+        autoRegisterCommands: true;
+
+        /**
+         * If using command auto-registration the bot user ID is needed in order generate the API endpoint URL
+         */
+        clientId: Snowflake;
+
+        /**
+         * If using command auto-registration the bot token is needed in order to send the API request, for authentication
+         */
+        token: string;
+      }
+  );
+
+export type ResolvedAdaConfig = Required<AdaConfig> & {
+  // `& object` gets rid of the `boolean` that would be included in the union for the property as a result of the intersection
+  debug: DebugOptions & object;
+};
 
 interface BaseCommandConfig {
   name?: string;
@@ -58,6 +143,7 @@ interface BaseCommandConfig {
 }
 
 // This exists for declaration merging by library consumers
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface CommandConfig extends BaseCommandConfig {}
 
 type ResolvedCommandConfig = WithTypeProps<

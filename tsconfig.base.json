@@ -17,8 +17,8 @@
     "preserveConstEnums": true,
     "sourceMap": true,
     "allowJs": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "es2022",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": false,
     "skipLibCheck": true,
@@ -34,6 +34,6 @@
       "@config/*": ["packages/config/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.cjs", "**/*.js"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["**/*.ts", "**/*.cjs", "**/*.js", "**/*.mjs"],
+  "exclude": ["node_modules", "dist", "build.mjs"]
 }

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable prefer-const */
 export const config = {
   disable: true,
 };
@@ -81,7 +83,7 @@ export const handler = () => {
 
   console.log(structuredClone({ a: 'a', b: 1, c: { h: 'h' } }));
   // console.log(await fetch('https://example.com'));
-  fetch('https://example.com').then((r) => {
+  void fetch('https://example.com').then((r) => {
     console.log({ status: r.status, ok: r.ok });
   });
 

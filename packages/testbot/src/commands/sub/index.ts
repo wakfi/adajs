@@ -12,3 +12,9 @@ export const config: CommandConfig = {
     // },
   ],
 };
+
+export default function handler() {
+  console.log('sub with text');
+  1 + 2;
+  //
+}

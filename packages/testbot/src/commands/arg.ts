@@ -10,6 +10,6 @@ export const config: CommandConfig = {
   ],
 };
 
-export const handler = () => {
-  console.log('ARG HANDLER');
+export const handler = (...args) => {
+  console.log('ARG HANDLER', args);
 };

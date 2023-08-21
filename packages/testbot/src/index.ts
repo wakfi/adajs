@@ -1,8 +1,9 @@
 import { createClient } from '@ada/index';
 import { AdaClient } from '@ada/lib/core/client/AdaClient';
+import { collectionToObject } from '@ada/lib/utils/helpers';
 import { CommandsCollection } from '@ada/types';
-import { importJson } from '@config/utils/helpers';
 import { Collection } from 'discord.js';
+import { importJson } from 'shared/utils/fs-helpers';
 import { tryIgnore } from 'shared/utils/helpers';
 
 const env = importJson('.env');
@@ -10,7 +11,7 @@ Object.entries(env).map(([k, v]) => {
   globalThis[k] = v;
 });
 
-function auditCommands(commands: CommandsCollection, collectionName: string = '') {
+function auditCommands(commands: CommandsCollection, collectionName = '') {
   const label = `${collectionName.toUpperCase()} COMMAND`.trim();
   commands.map((_, key) => {
     if (typeof key === 'symbol') return;
@@ -28,6 +29,7 @@ function auditCommands(commands: CommandsCollection, collectionName: string = ''
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function auditAllCommands(client: AdaClient) {
   console.log('auditCommands');
   console.log(
@@ -42,19 +44,16 @@ function auditAllCommands(client: AdaClient) {
 
 async function main() {
   const client = await createClient();
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   console.log('calling login', client.login);
   await client.login(TOKEN);
   console.log('finished login');
   if (process.env.ADA_ENV === 'test') {
     // auditAllCommands(client);
     // console.log(client.globalCommands);
-    for (const [key, entry] of client.globalCommands.entries()) {
-      if (entry instanceof Collection) {
-        console.log(entry.get('.'));
-      } else {
-        console.log(entry);
-      }
-    }
+    console.log('globalCommands:', collectionToObject(client.globalCommands));
+    console.log('guildCommands:', collectionToObject(client.guildCommands));
+    !client.config.debug.hotReload && (await client.destroy());
   }
 }
-main();
+void main();

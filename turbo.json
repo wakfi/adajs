@@ -26,7 +26,8 @@
   "globalDependencies": [
     "shared/**/*.ts",
     "./tsconfig.base.json",
-    ".eslint.js",
+    ".eslintignore",
+    ".eslintrc.js",
     ".prettierrc",
     "./package.json"
   ]

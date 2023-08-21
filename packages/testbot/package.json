@@ -2,9 +2,9 @@
   "name": "testbot",
   "packageManager": "yarn@3.3.0",
   "scripts": {
-    "build": "yarn workspace ada build && tsc",
-    "start": "TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
-    "test": "ADA_ENV=test TS_NODE_BASEURL=../../dist node -r tsconfig-paths/register ../../dist/packages/testbot/src/index.js",
+    "build": "yarn workspace ada build && node build.mjs",
+    "start": "node ../../dist/testbot.js",
+    "test": "ADA_ENV=test node ../../dist/testbot.js",
     "lint": "eslint",
     "a": "",
     "c": ""
@@ -13,7 +13,7 @@
     "@types/node": "18.11.18",
     "ts-node": "10.9.1",
     "tsconfig-paths": "4.1.1",
-    "typescript": "4.9.4"
+    "typescript": "^5.1.6"
   },
   "dependencies": {
     "discord.js": "^14.7.1"

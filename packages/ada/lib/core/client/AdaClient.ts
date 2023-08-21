@@ -1,11 +1,16 @@
 import { collectionPathSym, namePathSym } from '@ada/lib/utils/private-symbols';
 import { ApplicationCommandOptionType, Client, Collection } from 'discord.js';
-import type { CommandEntry, CommandsCollection } from '@ada/types';
-import {
-  ensureCommand,
-  entryToApiCommand,
-  InteractionOfCommand,
-} from './factory/client-loader';
+import { ensureCommand, InteractionOfCommand } from './factory/client-loader';
+import { deepcopy } from 'shared/modules/esm-tools/helpers.mjs';
+import type {
+  CommandEntry,
+  CommandsCollection,
+  DebugOptions,
+  ResolvedAdaConfig,
+} from '@ada/types';
+import type { FSWatcher } from 'chokidar';
+import { createLogger, verbose } from '@ada/lib/utils/logging';
+import { collectionToObject } from '@ada/lib/utils/helpers';
 
 const WHITESPACE_REGEX = /\s+/;
 const subcommandRefSym = Symbol('subcommandRef');
@@ -31,8 +36,40 @@ const placeholderCommand = (name: string) =>
 export class AdaClient extends Client {
   public readonly guildCommands = commandCollection();
   public readonly globalCommands = commandCollection();
+  public readonly autoRegistrationCache: Record<string, string> = {};
+  public readonly config: Omit<ResolvedAdaConfig, 'token'> & { token: undefined };
+  // Not available until after `watchCommands` is called, if applicable
+  public readonly watcher: Optional<FSWatcher>;
+  private readonly logger: Record<keyof DebugOptions, Console>;
 
-  public addCommand(command: CommandEntry, namePath: string | string[]) {
+  public constructor(config: ResolvedAdaConfig) {
+    super(config.bot);
+    if (config.token) {
+      // Ensure the token is populated
+      this.token = config.token;
+    }
+    this.config = {
+      ...deepcopy(config),
+      // We omit the token here to reduce the risk of it being accidentally leaked. Less copies of the token floating around
+      // is better for security. The base Client already has the token so we can internally retrieve it when needed, and
+      // developers are more likely to know about that one than this one (so they will know to redact it when needed)
+      token: undefined,
+    };
+    this.watcher = undefined;
+    this.logger = {} as any;
+    for (const label in config.debug) {
+      this.logger[label] = createLogger(() => config.debug[label], { label });
+    }
+  }
+
+  override async destroy() {
+    if (this.watcher) {
+      await this.watcher.close();
+    }
+    return await super.destroy();
+  }
+
+  public addCommand(command: CommandEntry, namePath: string | string[], upsert = false) {
     const { global: isGlobal } = command;
     // if (command[namePathSym].length > 3) {
     //   throw new Error('Discord only supports at most 2 levels of subcommand nesting');
@@ -40,23 +77,23 @@ export class AdaClient extends Client {
     const [currentEntry, key, collection] = this.findCommandReference(namePath, isGlobal);
     const collectionPath = collection.get(collectionPathSym)!;
     if (currentEntry) {
-      console.log('path 1', key);
+      verbose.log('path 1', key);
       const currentEntryNamepath = currentEntry[namePathSym];
       const newEntryNamepath = command[namePathSym];
       if (!collectionPath) {
         // This length comparison indicates that the |currentEntry| is at the end of its path,
         // and cannot be replaced by a further chain of collections
         // as there aren't any more keys to use for the corresponding CommandEntry
-        console.warn(`"${key}" already exists in commands collection`);
+        this.logger.commands.warn(`"${key}" already exists in commands collection`);
         return;
       }
       // The |currentEntry| is not yet at the end of its path, so we can try to go deeper
       let currentCollection = collection;
       let i = collectionPath.length;
       const len = Math.min(currentEntryNamepath.length, newEntryNamepath.length);
-      console.log('remapping loop');
+      verbose.log('remapping loop');
       for (; i < len; ++i) {
-        console.log(
+        verbose.log(
           `${currentEntryNamepath[i]} !== ${newEntryNamepath[i]}`,
           currentEntryNamepath,
           newEntryNamepath
@@ -71,10 +108,25 @@ export class AdaClient extends Client {
       if (i === len) {
         if (currentEntryNamepath[i] === newEntryNamepath[i]) {
           if (newEntryNamepath.length === currentEntryNamepath.length) {
+            if (upsert) {
+              const oldOptions = currentEntry.options;
+              const newOptions = command.options;
+              const mergedOptions = [
+                ...newOptions,
+                // Subcommand options are automatically controlled so we need to retain them. All other options come from the developer.
+                // It likely doesn't make sense to have any other options an a command with subcommands, but this implementation is nice
+                ...oldOptions.filter(
+                  ({ type }) => type === ApplicationCommandOptionType.Subcommand
+                ),
+              ];
+              command.options = mergedOptions;
+              collection.set(key, command);
+              return;
+            }
             // This length comparison indicates that the |currentEntry| and |entry| have identical
             // namepaths, i.e. a collision. This means that two commands have the same path
             // (command name + subcommand names).
-            console.error(
+            this.logger.commands.error(
               `Collision on command namepath "${newEntryNamepath.join(' ')}"`
             );
             // Rollback & return
@@ -110,7 +162,7 @@ export class AdaClient extends Client {
         }
       }
     } else if (collectionPath.length === command[namePathSym].length - 1) {
-      console.log('path 2', key);
+      verbose.log('path 2', key);
       collection.set(key, command);
       const currentEntry = collection.get('.') as Optional<CommandEntry>;
       if (currentEntry) {
@@ -121,7 +173,9 @@ export class AdaClient extends Client {
         );
       }
     } else {
-      console.log('path 3', key);
+      // TODO: Is this unreachable? What is this case handling? Something to do with subcommands?
+      verbose.log('path 3', key);
+      verbose.log(`${collectionPath} !== ${command[namePathSym]}`);
       const intermediate = commandCollection([...collectionPath, key]);
       const fakeParent = placeholderCommand(key);
       const topCommand = collection.get('.');
@@ -137,31 +191,60 @@ export class AdaClient extends Client {
       // Discord ever expands that restriction any
       intermediate.set('.', fakeParent);
       collection.set(key, intermediate);
-      this.addCommand(command, namePath);
+      verbose.log('intermediate', collectionToObject(intermediate));
+      verbose.log('collection', collectionToObject(collection));
+      // this.addCommand(command, namePath);
     }
   }
 
-  public removeCommand(namePath: string, isGlobal?: boolean): boolean {
+  public removeCommand(namePath: string | string[], isGlobal?: boolean): boolean {
     const [command, key, collection] = this.findCommandReference(namePath, isGlobal);
     if (!command) {
+      this.logger.commands.warn('Command not found at', namePath);
       return false;
     }
+    if (key === '.') {
+      const [, , parentCollection] = this.findCommandReference(
+        // '..' is an OS reserved name so it shouldn't collide with any real command name
+        [...namePath.slice(0, -1), '..'],
+        isGlobal
+      );
+      const collectionKey = namePath[namePath.length - 1];
+      if (!parentCollection.has(collectionKey)) {
+        throw new Error('This should be logically unreachable');
+      }
+      this.logger.commands.log(
+        'Removing',
+        collectionToObject(collection),
+        'at',
+        namePath
+      );
+      return parentCollection.delete(collectionKey);
+    }
+    this.logger.commands.log('Removing', command, 'at', namePath);
     return collection.delete(key);
   }
 
-  // Return the command if it exists, and also return the collection and key it can be accessed at regardless of whether the command exists.
-  // This is useful for abstracting the work of finding the command for various needs such as adding, deleting, and finding
-  private findCommandReference(
+  /**
+   * Return the command if it exists, and also return the collection and key it can be accessed at regardless of whether the command exists.
+   * This is useful for abstracting the work of finding the command for various needs such as adding, deleting, and finding
+   * @param namePath The namepath of the command to find, as a string or array of strings. If a string, it will be split on whitespace
+   * @param isGlobal True to check global commands, false for guildCommands, undefined to check guildCommands first, then globalCommands
+   * @returns
+   */
+  public findCommandReference(
     namePath: string | string[],
     isGlobal?: boolean
   ): [Optional<CommandEntry>, string, CommandsCollection] {
     let commands = isGlobal ? this.globalCommands : this.guildCommands;
     const names = Array.isArray(namePath) ? namePath : namePath.split(WHITESPACE_REGEX);
-    let [key] = namePath;
+    let [key] = names;
     let entry: Optional<CommandEntry>;
     for (let i = 0; i < names.length; ++i) {
+      verbose.log('Querying', key, 'in', collectionToObject(commands));
       key = names[i];
       const collectionEntry = commands.get(key);
+      verbose.log('Got entry', collectionEntry, '\n');
       if (typeof collectionEntry === 'undefined') {
         break;
       }
@@ -171,7 +254,23 @@ export class AdaClient extends Client {
       }
       commands = collectionEntry;
     }
-    if (entry || typeof isGlobal !== 'undefined') {
+    if (entry) {
+      return [entry, key, commands];
+    }
+    if (commands) {
+      if (
+        key ===
+          commands.get(collectionPathSym)![commands.get(collectionPathSym)!.length - 1] &&
+        names.length === commands.get(collectionPathSym)!.length
+      ) {
+        verbose.log('Using topCommand');
+        entry = commands.get('.');
+      }
+      if (entry) {
+        return [entry, '.', commands];
+      }
+    }
+    if (typeof isGlobal !== 'undefined') {
       return [entry, key, commands];
     }
     // isGlobal was undefined. Default behavior in such case is to search guildCommands first, then globalCommands
@@ -183,8 +282,8 @@ export class AdaClient extends Client {
     // TODO: Traverse options as needed
     const namePath: string[] = [interaction.commandName];
 
-    console.log(interaction.options.data, interaction.options.resolved);
-    const [subLevelOne] = interaction.options?.data;
+    verbose.log(interaction.options.data, interaction.options.resolved);
+    const [subLevelOne] = interaction.options.data;
 
     if (subLevelOne?.type < 3) {
       namePath.push(subLevelOne.name);
@@ -195,9 +294,9 @@ export class AdaClient extends Client {
       }
     }
 
-    // console.log(interaction, interaction.commandName);
+    verbose.log(interaction, interaction.commandName);
     const [command] = this.findCommandReference(namePath, isGlobal);
-    console.log('found', command, 'for', namePath);
+    this.logger.commands.log('found', command, 'for', namePath);
     return command?.handler;
   }
 }
