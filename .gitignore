@@ -5,3 +5,6 @@ dist
 .env
 .adaconfig
 .DS_Store
+.adarc*
+.config/adarc*
+ada.config.*

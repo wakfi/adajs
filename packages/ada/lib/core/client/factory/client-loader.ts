@@ -30,6 +30,8 @@ import { watch } from 'chokidar';
 import { readFile } from 'fs/promises';
 import { DEBUG_VERBOSE, createLogger, verbose } from '@ada/lib/utils/logging';
 
+// TODO: BREAK THIS FILE UP
+
 const DEBUG = {
   LOADER: false,
   COMMANDS: false,
