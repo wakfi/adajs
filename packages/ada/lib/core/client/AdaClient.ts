@@ -193,7 +193,7 @@ export class AdaClient extends Client {
       collection.set(key, intermediate);
       verbose.log('intermediate', collectionToObject(intermediate));
       verbose.log('collection', collectionToObject(collection));
-      // this.addCommand(command, namePath);
+      this.addCommand(command, namePath);
     }
   }
 
