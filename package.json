@@ -33,7 +33,7 @@
     "turbo": "1.6.3",
     "typescript": "^5.1.6"
   },
-  "packageManager": "yarn@3.3.0",
+  "packageManager": "yarn@4.0.2",
   "dependencies": {
     "ada": "workspace:^",
     "testbot": "workspace:^",

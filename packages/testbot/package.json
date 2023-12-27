@@ -1,6 +1,5 @@
 {
   "name": "testbot",
-  "packageManager": "yarn@3.3.0",
   "scripts": {
     "build": "yarn workspace ada build && node build.mjs",
     "start": "node ../../dist/testbot.js",
