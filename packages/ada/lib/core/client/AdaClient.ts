@@ -1,16 +1,16 @@
-import { collectionPathSym, namePathSym } from '@ada/lib/utils/private-symbols';
+import type { FSWatcher } from 'chokidar';
 import { ApplicationCommandOptionType, Client, Collection } from 'discord.js';
-import { ensureCommand, InteractionOfCommand } from './factory/client-loader';
 import { deepcopy } from 'shared/modules/esm-tools/helpers.mjs';
+import { collectionToObject } from '@ada/lib/utils/helpers';
+import { createLogger, verbose } from '@ada/lib/utils/logging';
+import { collectionPathSym, namePathSym } from '@ada/lib/utils/private-symbols';
 import type {
   CommandEntry,
   CommandsCollection,
   DebugOptions,
   ResolvedAdaConfig,
 } from '@ada/types';
-import type { FSWatcher } from 'chokidar';
-import { createLogger, verbose } from '@ada/lib/utils/logging';
-import { collectionToObject } from '@ada/lib/utils/helpers';
+import { ensureCommand, InteractionOfCommand } from './factory/client-loader';
 
 const WHITESPACE_REGEX = /\s+/;
 const subcommandRefSym = Symbol('subcommandRef');
@@ -58,7 +58,10 @@ export class AdaClient extends Client {
     this.watcher = undefined;
     this.logger = {} as any;
     for (const label in config.debug) {
-      this.logger[label] = createLogger(() => config.debug[label], { label });
+      this.logger[label as keyof typeof config.debug] = createLogger(
+        () => config.debug[label as keyof typeof config.debug],
+        { label }
+      );
     }
   }
 

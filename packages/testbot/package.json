@@ -1,5 +1,6 @@
 {
   "name": "testbot",
+  "type": "module",
   "scripts": {
     "build": "yarn workspace ada build && node build.mjs",
     "start": "node ../../dist/testbot.js",
@@ -12,7 +13,7 @@
     "@types/node": "18.11.18",
     "ts-node": "10.9.1",
     "tsconfig-paths": "4.1.1",
-    "typescript": "^5.1.6"
+    "typescript": "5.3.3"
   },
   "dependencies": {
     "discord.js": "^14.7.1"

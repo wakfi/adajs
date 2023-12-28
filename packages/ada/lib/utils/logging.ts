@@ -65,13 +65,16 @@ function createLoggerWithDataProp(
   const logger = new Proxy(console, {
     get: (...args) => {
       const [target, key] = args;
-      const value = target[key];
+      const value = target[key as keyof typeof target];
       if (typeof value === 'function') {
         if (!control.enabled) {
           return () => {};
         }
         // console functions require console as their |this| context
-        return value.bind(target, ...(label ? [`[${label}]:`] : []));
+        return Function.prototype.bind.apply(value, [
+          target,
+          ...(label ? [`[${label}]:`] : []),
+        ]);
       }
       return value;
     },

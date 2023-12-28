@@ -1,34 +1,34 @@
-import { walkDirectory } from '@ada/lib/utils/helpers';
+import { watch } from 'chokidar';
 import {
-  ResolvedAdaConfig,
-  CommandEntry,
-  CommandConfig,
-  CommandsCollection,
-} from '@ada/types';
-import { AdaConfig } from '@ada/types';
-import {
-  ApplicationCommandType,
-  Interaction,
-  InteractionType,
-  PermissionsString,
-  PermissionFlagsBits,
   APIApplicationCommand,
-  Collection,
   APIApplicationCommandOption,
   APIApplicationCommandSubcommandGroupOption,
   APIApplicationCommandSubcommandOption,
+  ApplicationCommandType,
+  Collection,
+  Interaction,
+  InteractionType,
+  PermissionFlagsBits,
+  PermissionsString,
 } from 'discord.js';
-import { AdaClient } from '../AdaClient';
-import { basename, extname, dirname, relative, sep } from 'path';
+import { readFile } from 'fs/promises';
+import { basename, dirname, extname, relative, sep } from 'path';
+import { sleep, strcmp, tryIgnore } from 'shared/utils/helpers';
+import { UNHANDLED_COMMAND, UNKNOWN_ERROR } from '@ada/lib/errors/user-facing/constants';
+import { DISCORD_API } from '@ada/lib/utils/constants';
+import { walkDirectory } from '@ada/lib/utils/helpers';
+import { createLogger, DEBUG_VERBOSE, verbose } from '@ada/lib/utils/logging';
 import { inferredNameSym, namePathSym } from '@ada/lib/utils/private-symbols';
 import { setInternalClient } from '@ada/lib/utils/state';
 import { executeFile, HandlerFileExports } from '@ada/lib/utils/vm';
-import { sleep, strcmp, tryIgnore } from 'shared/utils/helpers';
-import { DISCORD_API } from '@ada/lib/utils/constants';
-import { UNKNOWN_ERROR, UNHANDLED_COMMAND } from '@ada/lib/errors/user-facing/constants';
-import { watch } from 'chokidar';
-import { readFile } from 'fs/promises';
-import { DEBUG_VERBOSE, createLogger, verbose } from '@ada/lib/utils/logging';
+import {
+  AdaConfig,
+  CommandConfig,
+  CommandEntry,
+  CommandsCollection,
+  ResolvedAdaConfig,
+} from '@ada/types';
+import { AdaClient } from '../AdaClient';
 
 // TODO: BREAK THIS FILE UP
 
@@ -275,7 +275,7 @@ export const ensureCommand = (
     ...Object.entries(config).sort(([a], [b]) => strcmp(a, b)),
     ...Object.getOwnPropertySymbols(config)
       .sort((a, b) => strcmp(a.description, b.description))
-      .map((s) => [s, config[s]]),
+      .map((s) => [s, config[s as keyof typeof config]]),
   ];
 
   return Object.setPrototypeOf(

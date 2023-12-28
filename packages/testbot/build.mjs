@@ -14,8 +14,7 @@ build({
   target: 'esnext',
   platform: 'node',
   tsconfig: resolve(__dirname, 'tsconfig.json'),
-  outfile: resolve(__dirname, '../../dist/testbot.js'),
-  packages: 'external',
+  outfile: resolve(__dirname, 'dist', 'testbot.js'),
 })
   .then(() => console.log('Completed testbot build'))
   .catch((e) => {

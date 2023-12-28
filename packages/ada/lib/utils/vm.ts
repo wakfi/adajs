@@ -1,8 +1,8 @@
-import { runInNewContext } from 'vm';
-import { namePathSym, inferredNameSym } from './private-symbols';
-import type { CommandConfig } from '@ada/types';
-import { transformSync } from 'esbuild';
 import { cosmiconfigSync } from 'cosmiconfig';
+import { transformSync } from 'esbuild';
+import { runInNewContext } from 'vm';
+import type { CommandConfig } from '@ada/types';
+import { inferredNameSym, namePathSym } from './private-symbols';
 
 // These aren't in @ada/types because it won't be external
 type UnresolvedCommandConfig = CommandConfig & {
@@ -10,20 +10,25 @@ type UnresolvedCommandConfig = CommandConfig & {
   [inferredNameSym]: string;
 };
 
+interface ExecuteFileParams {
+  body: string;
+  filepath: string;
+}
+
 export type HandlerFileExports = {
   config?: UnresolvedCommandConfig;
   default?: BasicCallable;
   handler?: BasicCallable;
 };
 
-export const executeFile = ({ body, filepath }) => {
+export const executeFile = ({ body, filepath }: ExecuteFileParams) => {
   if (filepath.endsWith('.ts')) {
     return executeTsFile({ body, filepath });
   }
   return executeJsFile({ body, filepath });
 };
 
-export const executeTsFile = ({ body, filepath }) => {
+export const executeTsFile = ({ body, filepath }: ExecuteFileParams) => {
   const explorer = cosmiconfigSync('tsconfig', {
     searchPlaces: ['tsconfig.json'],
   });
@@ -40,7 +45,7 @@ export const executeTsFile = ({ body, filepath }) => {
   return executeJsFile({ body: transformed.code, filepath });
 };
 
-export const executeJsFile = ({ body, filepath }) =>
+export const executeJsFile = ({ body, filepath }: ExecuteFileParams) =>
   runInNewContext(
     `${body};\nlet namespaced=false;for(let k in module.exports){if(Object.prototype.hasOwnProperty.call(module.exports,k)){/*console.log('(VM) K is',k);*/namespaced=true;break}};namespaced?module.exports:exports;`,
     {
