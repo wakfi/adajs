@@ -437,7 +437,6 @@ async function maybeRegisterCommands(
     return;
   }
 
-  // TODO: Auto register the commands
   const apiCommands = commands
     .map(entryToApiCommand)
     .filter((x): x is NonNullable<typeof x> => !!x);
