@@ -17,7 +17,7 @@ const config = {
     ecmaVersion: 13,
     sourceType: 'module',
     tsconfigRootDir: __dirname,
-    project: ['./tsconfig.base.json'],
+    project: ['./tsconfig.eslint.json'],
   },
   plugins: ['@typescript-eslint', 'import'],
   rules: {

@@ -1,8 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "isolatedModules": false,
-    "incremental": false
-  },
-  "include": ["index.ts", "lib", "types.ts"]
-}
